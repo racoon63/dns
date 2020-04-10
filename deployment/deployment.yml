@@ -1,8 +1,8 @@
-# Usage: ansible-playbook
+# Usage: ansible-playbook -i deployment/hosts -e DOMAIN=your-domain  deployment/deployment.yml 
 ---
 - name: Deploy pihole and coreDNS in docker container on target host.
   gather_facts: no
-  hosts: rpi3
+  hosts: localhost
   tasks:
     - name: Install git package
       become: yes
@@ -13,9 +13,15 @@
     
     - name: Clone git repository
       git:
-        clone: yes
-        repo: https://github.com/racoon63/dns.git
-        dest: /tmp/dns
+          clone: yes
+          repo: https://github.com/racoon63/dns.git
+          dest: /tmp/dns
+
+    - name: Create temporary directory for config files
+      file:
+        path: /tmp/dns
+        state: directory
+        mode: '0755'
 
     - name: Create Corefile configuration for coreDNS
       template:
@@ -27,7 +33,7 @@
         src: /tmp/dns/deployment/example.db.j2
         dest: /tmp/dns/{{ DOMAIN }}.db
 
-    - name: Recursively remove temporary directory
-      file:
-        path: /tmp/dns
-        state: absent
+    # - name: Recursively remove temporary directory
+    #   file:
+    #     path: /tmp/dns
+    #     state: absent
