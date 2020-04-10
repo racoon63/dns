@@ -1,0 +1,42 @@
+version: "3"
+services:
+  coredns:
+    container_name: coredns
+    image: coredns/coredns
+    networks:
+      dns:
+        ipv4_address: 172.20.1.100
+    volumes:
+      - "./Corefile:/root/Corefile"
+      - "./example.com.db:/root/example.com.db"
+    restart: unless-stopped
+
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "67:67/udp"
+      - "80:80/tcp"
+      - "443:443/tcp"
+    networks:
+      dns:
+        ipv4_address: 172.20.1.200
+    environment:
+      TZ: 'Europe/Berlin'
+      WEBPASSWORD: 'supersecret123'
+      DNS1: 172.20.1.100
+    dns:
+      - 1.1.1.1
+      - 9.9.9.9
+    cap_add:
+      - NET_ADMIN
+    restart: unless-stopped
+
+networks:
+  dns:
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.20.1.0/24"
