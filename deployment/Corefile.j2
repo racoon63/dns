@@ -1,0 +1,11 @@
+.:53 {
+    forward . 1.1.1.1 1.0.0.1 9.9.9.9
+    log
+    errors
+}
+
+{{ DOMAIN }}:53 {
+    file /root/{{ DOMAIN }}.db
+    log
+    errors
+}
