@@ -1,39 +1,103 @@
-# Usage: ansible-playbook -i deployment/hosts -e DOMAIN=your-domain  deployment/deployment.yml 
+# Example usage: ansible-playbook -i hosts -e DOMAIN=YOUR_DOMAIN --extra-vars "host=YOUR_HOST" deployment.yml
 ---
 - name: Deploy pihole and coreDNS in docker container on target host.
   gather_facts: no
-  hosts: localhost
-  tasks:
-    - name: Install git package
-      become: yes
-      apt:
-        name: git
-        update_cache: yes
-        state: latest
-    
-    - name: Clone git repository
-      git:
-          clone: yes
-          repo: https://github.com/racoon63/dns.git
-          dest: /tmp/dns
+  hosts: '{{ host }}'
+  vars:
+    CONTAINER_NETWORK: dns
+  tasks:    
+    - name: Install docker python package
+      pip:
+        name: docker
 
-    - name: Create temporary directory for config files
+    - name: Create directory for coreDNS config files
+      become: yes
       file:
-        path: /tmp/dns
+        path: /opt/dns
         state: directory
+        owner: pi
+        group: pi
         mode: '0755'
 
     - name: Create Corefile configuration for coreDNS
       template:
-        src: /tmp/dns/deployment/Corefile.j2
-        dest: /tmp/dns/Corefile
+        src: ./Corefile.j2
+        dest: /opt/dns/Corefile
 
     - name: Create zone file for coreDNS
       template:
-        src: /tmp/dns/deployment/example.db.j2
-        dest: /tmp/dns/{{ DOMAIN }}.db
+        src: ./example.db.j2
+        dest: /opt/dns/{{ DOMAIN }}.db
 
-    # - name: Recursively remove temporary directory
-    #   file:
-    #     path: /tmp/dns
-    #     state: absent
+    - name: Create docker network for dns container
+      docker_network:
+        name: "{{ CONTAINER_NETWORK }}"
+        ipam_driver: default
+        ipam_config:
+          - subnet: 172.20.1.0/24
+            gateway: 172.20.1.2
+        state: present
+
+    - name: Create coreDNS container
+      docker_container:
+        name: coredns
+        recreate: yes
+        command: -conf /root/Corefile
+        detach: yes
+        hostname: coredns
+        image: coredns/coredns
+        mounts:
+          - type: bind
+            propagation: private
+            read_only: yes
+            source: /opt/dns/Corefile
+            target: /root/Corefile
+          - type: bind
+            propagation: private
+            read_only: yes
+            source: /opt/dns/{{ DOMAIN }}.db
+            target: /root/{{ DOMAIN }}.db
+        networks_cli_compatible: yes
+        networks:
+          - name: "{{ CONTAINER_NETWORK }}"
+            ipv4_address: 172.20.1.10
+            links:
+              - pihole
+        restart_policy: always
+        state: started
+        working_dir: /root/
+        
+    - name: Create pihole container
+      docker_container:
+        name: pihole
+        recreate: yes
+        detach: yes
+        hostname: pihole
+        etc_hosts:
+          coredns: 172.20.1.10
+        image: pihole/pihole
+        env:
+          TZ: Europe/Berlin
+          WEBPASSWORD: supersecret123
+          DNS1: 172.20.1.10
+          DNS2: 1.1.1.1
+        networks_cli_compatible: yes
+        networks:
+          - name: "{{ CONTAINER_NETWORK }}"
+            ipv4_address: 172.20.1.20
+            links:
+              - coredns
+        published_ports:
+          - 53:53/tcp
+          - 53:53/udp
+          - 67:67/udp
+          - 80:80/tcp
+          - 443:443/tcp
+        restart_policy: always
+        state: started
+        working_dir: /root/
+        healthcheck:
+          interval: 60s
+          retries: 3
+          start_period: 10s
+          test: ["dig", "@coredns", "dns.{{ DOMAIN }}"]
