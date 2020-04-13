@@ -1,22 +1,23 @@
-# Example usage: ansible-playbook -i hosts -e DOMAIN=YOUR_DOMAIN --extra-vars "host=YOUR_HOST" deployment.yml
+# Example usage: ansible-playbook -i hosts -e HOST=YOUR_HOST -e USER=USERNAME -e GROUP=USERGROUP -e DOMAIN=YOUR_DOMAIN deployment.yml
 ---
-- name: Deploy pihole and coreDNS in docker container on target host.
+- name: Deploy pihole and coreDNS in docker container.
   gather_facts: no
-  hosts: '{{ host }}'
+  hosts: '{{ HOST }}'
   vars:
     CONTAINER_NETWORK: dns
   tasks:    
     - name: Install docker python package
       pip:
         name: docker
+        state: present
 
     - name: Create directory for coreDNS config files
       become: yes
       file:
         path: /opt/dns
         state: directory
-        owner: pi
-        group: pi
+        owner: "{{ USER }}"
+        group: "{{ GROUP }}"
         mode: '0755'
 
     - name: Create Corefile configuration for coreDNS
@@ -96,8 +97,3 @@
         restart_policy: always
         state: started
         working_dir: /root/
-        healthcheck:
-          interval: 60s
-          retries: 3
-          start_period: 10s
-          test: ["dig", "@coredns", "dns.{{ DOMAIN }}"]
