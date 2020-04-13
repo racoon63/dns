@@ -1,4 +1,4 @@
-# Example usage: ansible-playbook -i hosts -e HOST=YOUR_HOST -e USER=USERNAME -e GROUP=USERGROUP -e DOMAIN=YOUR_DOMAIN deployment.yml
+# Example usage: ansible-playbook -i hosts -e HOST=YOUR_HOST deployment.yml
 ---
 - name: Roll back pihole and coreDNS in docker container deployment.
   gather_facts: no
