@@ -1,0 +1,32 @@
+# Example usage: ansible-playbook -i hosts -e HOST=YOUR_HOST -e USER=USERNAME -e GROUP=USERGROUP -e DOMAIN=YOUR_DOMAIN deployment.yml
+---
+- name: Roll back pihole and coreDNS in docker container deployment.
+  gather_facts: no
+  hosts: '{{ HOST }}'
+  vars:
+    CONTAINER_NETWORK: dns
+  tasks:    
+    - name: Remove pihole container
+      docker_container:
+        name: pihole
+        state: absent
+    
+    - name: Remove coreDNS container
+      docker_container:
+        name: pihole
+        state: absent
+
+    - name: Remove dns network
+      docker_network:
+        state: absent
+
+    - name: Delete dns configuration directory
+      become: yes
+      file:
+        path: /opt/dns
+        state: absent
+
+    - name: Remove docker python package
+      pip:
+        name: docker
+        state: absent
