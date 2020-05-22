@@ -1,11 +1,13 @@
 FROM alpine
 
-RUN apk add --no-cache bind bind-tools
+RUN apk add --no-cache bind bind-tools bind-dnssec-tools
 
 COPY named.conf /etc/bind/named.conf
 COPY db.example.com /var/bind/db.example.com
 COPY db.178.168.192 /var/bind/db.178.168.192
 
+RUN dnssec-keygen -f KSK -a NSEC3RSASHA1 -b 4096 -n ZONE -k /var/bind/ example.com
+RUN dnssec-keygen -f KSK -a NSEC3RSASHA1 -b 4096 -n ZONE -K /var/bind/ example.com
 RUN chown -R named:named /etc/bind
 RUN chown -R named:named /var/bind
 
